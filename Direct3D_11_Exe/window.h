@@ -17,6 +17,13 @@ namespace direct3d_11_eg
 			uint16_t height;
 		};
 
+		enum class style
+		{
+			normal,
+			borderless,
+			fullscreen
+		};
+
 		enum class message_type
 		{
 			resize,
@@ -29,11 +36,14 @@ namespace direct3d_11_eg
 		using callback_method = std::function<bool(uintptr_t, uintptr_t)>;
 
 	public:
-		window(const size &window_size, std::wstring_view title, uint16_t res_icon_id = 0);
+		window() = delete;
+		window(std::wstring_view title, const size &window_size, const style window_style = style::normal, uint16_t window_icon = 0);
 		~window();
 
 		void set_message_callback(message_type msg, const callback_method &callback);
 		void show();
+		void change_style(const style window_style);
+		void change_size(const size &window_size);
 		void process_messages();
 
 		HWND handle() const;

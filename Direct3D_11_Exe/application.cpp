@@ -1,12 +1,18 @@
 #include "application.h"
 
 #include <functional>
+#include <ratio>
 
 using namespace direct3d_11_eg;
 
+
 application::application()
 {
-	app_window = std::make_unique<window>(window::size{ 800, 600 } , L"Direct3D 11.x Example");
+	constexpr uint16_t height = 600;
+	constexpr uint16_t width = height * 16 / 10;
+
+	app_window = std::make_unique<window>(L"Direct3D 11.x Example",
+	                                      window::size{ width, height });
 
 	app_window->set_message_callback(window::message_type::keypress, 
 	                                 [&](uintptr_t key_code, uintptr_t extension) -> bool
@@ -32,9 +38,11 @@ int application::run()
 
 bool application::keypress_callback(uintptr_t key_code, uintptr_t extension)
 {
-	if (key_code == VK_ESCAPE)
+	switch (key_code)
 	{
-		exit_application = true;
+		case VK_ESCAPE:
+			exit_application = true;
+			break;
 	}
 	return true;
 }
