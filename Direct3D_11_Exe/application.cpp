@@ -16,13 +16,18 @@ application::application()
 
 	app_window->set_message_callback(window::message_type::keypress, 
 	                                 [&](uintptr_t key_code, uintptr_t extension) -> bool
-	{
-		return keypress_callback(key_code, extension);
-	});
-}
+	                                 {
+	                                 	return keypress_callback(key_code, extension);
+	                                 });
 
-application::~application()
-{}
+	app_window->set_message_callback(window::message_type::resize,
+	                                 [&](uintptr_t wParam, uintptr_t lParam) -> bool
+	                                 {
+	                                 	return resize_callback(wParam, lParam);
+	                                 });
+
+	gfx_renderer = std::make_unique<graphics_renderer>(app_window->handle());
+}
 
 int application::run()
 {
@@ -30,6 +35,8 @@ int application::run()
 
 	while (app_window->handle() and (not exit_application))
 	{
+		gfx_renderer->draw_frame();
+
 		app_window->process_messages();
 	}
 
@@ -45,4 +52,10 @@ bool application::keypress_callback(uintptr_t key_code, uintptr_t extension)
 			break;
 	}
 	return true;
+}
+
+bool direct3d_11_eg::application::resize_callback(uintptr_t wParam, uintptr_t lParam)
+{
+	gfx_renderer->resize_frame();
+	return false;
 }

@@ -85,11 +85,15 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="application.cpp" />
+    <ClCompile Include="direct3d.cpp" />
+    <ClCompile Include="graphics_renderer.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="window.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="application.h" />
+    <ClInclude Include="direct3d.h" />
+    <ClInclude Include="graphics_renderer.h" />
     <ClInclude Include="window.h" />
   </ItemGroup>
   <ItemGroup>
