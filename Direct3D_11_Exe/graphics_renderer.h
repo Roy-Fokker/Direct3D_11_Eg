@@ -19,6 +19,7 @@ namespace direct3d_11_eg
 
 	private:
 		std::unique_ptr<direct3d> d3d = nullptr;
-		std::unique_ptr<render_target> d3d_render_target = nullptr;
+		std::unique_ptr<render_target> draw_buffer = nullptr;
+		std::unique_ptr<pipeline_state> draw_pipeline = nullptr;
 	};
 };

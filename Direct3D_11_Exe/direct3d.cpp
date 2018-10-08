@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <array>
 #include <vector>
+#include <DirectXColors.h>
 
 using namespace direct3d_11_eg;
 using namespace direct3d_11_eg::direct3d_types;
@@ -32,10 +33,10 @@ namespace
 		};
 	}
 
-	const std::array<uint16_t, 2> get_swap_chain_size(swap_chain d3d_swap_chain)
+	const std::array<uint16_t, 2> get_swap_chain_size(swap_chain_t swap_chain)
 	{
 		DXGI_SWAP_CHAIN_DESC sd{};
-		auto hr = d3d_swap_chain->GetDesc(&sd);
+		auto hr = swap_chain->GetDesc(&sd);
 		assert(hr == S_OK);
 
 		return {
@@ -85,7 +86,7 @@ namespace
 		return refresh_rate;
 	}
 
-	const DXGI_SAMPLE_DESC get_msaa_level(device device)
+	const DXGI_SAMPLE_DESC get_msaa_level(device_t device)
 	{
 		DXGI_SAMPLE_DESC sd{ 1, 0 };
 
@@ -108,7 +109,7 @@ namespace
 	}
 }
 
-#pragma region "Direct 3D - Device, Context and Swap Chain"
+#pragma region "Device, Context and Swap Chain"
 
 direct3d::direct3d(HWND hWnd) :
 	window_handle(hWnd)
@@ -122,28 +123,28 @@ direct3d::~direct3d()
 
 void direct3d::resize_swap_chain()
 {
-	auto hr = d3d_swap_chain->ResizeBuffers(NULL, NULL, NULL, DXGI_FORMAT_UNKNOWN, NULL);
+	auto hr = swap_chain->ResizeBuffers(NULL, NULL, NULL, DXGI_FORMAT_UNKNOWN, NULL);
 	assert(hr == S_OK);
 }
 
 void direct3d::present(bool vSync)
 {
-	d3d_swap_chain->Present((vSync ? TRUE : FALSE), NULL);
+	swap_chain->Present((vSync ? TRUE : FALSE), NULL);
 }
 
-context direct3d::get_context() const
+context_t direct3d::get_context() const
 {
-	return d3d_context;
+	return context;
 }
 
-swap_chain direct3d::get_swap_chain() const
+swap_chain_t direct3d::get_swap_chain() const
 {
-	return d3d_swap_chain;
+	return swap_chain;
 }
 
-device direct3d::get_device() const
+device_t direct3d::get_device() const
 {
-	return d3d_device;
+	return device;
 }
 
 void direct3d::make_device()
@@ -165,9 +166,9 @@ void direct3d::make_device()
 								feature_levels.data(),
 								static_cast<uint32_t>(feature_levels.size()),
 								D3D11_SDK_VERSION,
-								&d3d_device,
+								&device,
 								nullptr,
-								&d3d_context);
+								&context);
 	assert(hr == S_OK);
 }
 
@@ -176,7 +177,7 @@ void direct3d::make_swap_chain()
 	HRESULT hr{};
 
 	CComPtr<IDXGIDevice> dxgi_device{};
-	hr = d3d_device->QueryInterface<IDXGIDevice>(&dxgi_device);
+	hr = device->QueryInterface<IDXGIDevice>(&dxgi_device);
 	assert(hr == S_OK);
 
 	CComPtr<IDXGIAdapter> dxgi_adapter{};
@@ -198,11 +199,11 @@ void direct3d::make_swap_chain()
 	sd.BufferDesc.RefreshRate = get_refresh_rate(dxgi_adapter, window_handle);
 	sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 	sd.OutputWindow = window_handle;
-	sd.SampleDesc = get_msaa_level(d3d_device);
+	sd.SampleDesc = get_msaa_level(device);
 	sd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 	sd.Windowed = TRUE;
 
-	hr = dxgi_factory->CreateSwapChain(d3d_device, &sd, &d3d_swap_chain);
+	hr = dxgi_factory->CreateSwapChain(device, &sd, &swap_chain);
 	assert(hr == S_OK);
 
 	dxgi_factory->MakeWindowAssociation(window_handle, DXGI_MWA_NO_ALT_ENTER | DXGI_MWA_NO_WINDOW_CHANGES);
@@ -210,14 +211,14 @@ void direct3d::make_swap_chain()
 
 #pragma endregion
 
-#pragma region "Direct 3D - Render Target"
+#pragma region "Render Target"
 
-render_target::render_target(direct3d_types::device d3d_device, direct3d_types::swap_chain d3d_swap_chain)
+render_target::render_target(direct3d_types::device_t device, direct3d_types::swap_chain_t swap_chain)
 {
-	auto [width, height] = get_swap_chain_size(d3d_swap_chain);
+	auto [width, height] = get_swap_chain_size(swap_chain);
 
-	make_target_view(d3d_device, d3d_swap_chain);
-	make_stencil_view(d3d_device, {width, height});
+	make_target_view(device, swap_chain);
+	make_stencil_view(device, {width, height});
 
 	viewport = {};
 	viewport.Width = width;
@@ -228,33 +229,33 @@ render_target::render_target(direct3d_types::device d3d_device, direct3d_types::
 render_target::~render_target()
 {}
 
-void render_target::activate(direct3d_types::context d3d_context)
+void render_target::activate(context_t context)
 {
-	d3d_context->OMSetRenderTargets(1, &d3d_render_target_view.p, d3d_depth_stencil_view);
-	d3d_context->RSSetViewports(1, &viewport);
+	context->OMSetRenderTargets(1, &render_view.p, depth_view);
+	context->RSSetViewports(1, &viewport);
 }
 
-void render_target::clear_views(context d3d_context, const std::array<float, 4> &clear_color)
+void render_target::clear_views(context_t context, const std::array<float, 4> &clear_color)
 {
-	d3d_context->ClearRenderTargetView(d3d_render_target_view, &clear_color[0]);
-	d3d_context->ClearDepthStencilView(d3d_depth_stencil_view, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+	context->ClearRenderTargetView(render_view, &clear_color[0]);
+	context->ClearDepthStencilView(depth_view, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 }
 
-void render_target::make_target_view(device d3d_device, swap_chain d3d_swap_chain)
+void render_target::make_target_view(device_t device, swap_chain_t swap_chain)
 {
-	texture_2d buffer = nullptr;
-	auto hr = d3d_swap_chain->GetBuffer(0,
+	texture_2d_t buffer = nullptr;
+	auto hr = swap_chain->GetBuffer(0,
 	                                    __uuidof(ID3D11Texture2D),
 	                                    reinterpret_cast<void **>(&buffer.p));
 	assert(hr == S_OK);
 
-	hr = d3d_device->CreateRenderTargetView(buffer,
-	                                        0,
-	                                        &d3d_render_target_view);
+	hr = device->CreateRenderTargetView(buffer,
+	                                    0,
+	                                    &render_view);
 	assert(hr == S_OK);
 }
 
-void render_target::make_stencil_view(device d3d_device, const std::array<uint16_t, 2> &buffer_size)
+void render_target::make_stencil_view(device_t device, const std::array<uint16_t, 2> &buffer_size)
 {
 	auto [width, height] = buffer_size;
 
@@ -266,16 +267,120 @@ void render_target::make_stencil_view(device d3d_device, const std::array<uint16
 	td.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
 	td.Usage = D3D11_USAGE_DEFAULT;
 	td.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-	td.SampleDesc = get_msaa_level(d3d_device);
+	td.SampleDesc = get_msaa_level(device);
 
-	auto hr = d3d_device->CreateTexture2D(&td,
+	auto hr = device->CreateTexture2D(&td,
 	                                      0,
-	                                      &d3d_depth_stencil_buffer);
+	                                      &depth_buffer);
 	assert(hr == S_OK);
 
-	hr = d3d_device->CreateDepthStencilView(d3d_depth_stencil_buffer,
+	hr = device->CreateDepthStencilView(depth_buffer,
 	                                        0,
-	                                        &d3d_depth_stencil_view);
+	                                        &depth_view);
+	assert(hr == S_OK);
+}
+
+#pragma endregion
+
+#pragma region "Pipeline State"
+
+pipeline_state::pipeline_state(device_t device, const description &state_description)
+{
+	make_blend_state(device, state_description.blend);
+	make_depth_stencil_state(device, state_description.depth_stencil);
+	make_rasterizer_state(device, state_description.rasterizer);
+	make_sampler_state(device, state_description.sampler);
+}
+
+pipeline_state::~pipeline_state()
+{}
+
+void pipeline_state::activate(context_t context)
+{
+	context->OMSetBlendState(blend_state,
+	                         DirectX::Colors::Transparent,
+	                         0xffff'ffff);
+	context->OMSetDepthStencilState(depth_stencil_state,
+	                                NULL);
+	context->RSSetState(rasterizer_state);
+	context->PSSetSamplers(0,
+	                       1,
+	                       &sampler_state.p);
+}
+
+void pipeline_state::make_blend_state(device_t device, const description::blend_d &desc)
+{
+	D3D11_BLEND_DESC bd{};
+
+	bd.RenderTarget[0].BlendEnable = ((desc.src != D3D11_BLEND_ONE) || (desc.dst != D3D11_BLEND_ONE));
+
+	bd.RenderTarget[0].SrcBlend = desc.src;
+	bd.RenderTarget[0].BlendOp = desc.op;
+	bd.RenderTarget[0].DestBlend = desc.dst;
+
+	bd.RenderTarget[0].SrcBlendAlpha = desc.src_alpha;
+	bd.RenderTarget[0].BlendOpAlpha = desc.op_alpha;
+	bd.RenderTarget[0].DestBlendAlpha = desc.dst_alpha;
+
+	bd.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+
+	auto hr = device->CreateBlendState(&bd, &blend_state);
+	assert(hr == S_OK);
+}
+
+void pipeline_state::make_depth_stencil_state(device_t device, const description::depth_stencil_d &desc)
+{
+	D3D11_DEPTH_STENCIL_DESC dsd{};
+
+	dsd.DepthEnable = desc.depth_enable;
+	dsd.DepthWriteMask = desc.write_enable ? D3D11_DEPTH_WRITE_MASK_ALL : D3D11_DEPTH_WRITE_MASK_ZERO;
+	dsd.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
+
+	dsd.StencilEnable = false;
+	dsd.StencilReadMask = D3D11_DEFAULT_STENCIL_READ_MASK;
+	dsd.StencilWriteMask = D3D11_DEFAULT_STENCIL_WRITE_MASK;
+
+	dsd.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+	dsd.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+	dsd.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+	dsd.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
+
+	dsd.BackFace = dsd.FrontFace;
+
+	auto hr = device->CreateDepthStencilState(&dsd, &depth_stencil_state);
+	assert(hr == S_OK);
+}
+
+void pipeline_state::make_rasterizer_state(device_t device, const description::rasterizer_d &desc)
+{
+	D3D11_RASTERIZER_DESC rd{};
+
+	rd.CullMode = desc.cull_mode;
+	rd.FillMode = desc.fill_mode;
+	rd.DepthClipEnable = true;
+	rd.MultisampleEnable = true;
+
+	
+	auto hr = device->CreateRasterizerState(&rd, &rasterizer_state);
+	assert(hr == S_OK);
+}
+
+void pipeline_state::make_sampler_state(device_t device, const description::sampler_d &desc)
+{
+	D3D11_SAMPLER_DESC sd{ };
+
+	sd.Filter = desc.filter;
+
+	sd.AddressU = desc.texture_address_mode;
+	sd.AddressV = desc.texture_address_mode;
+	sd.AddressW = desc.texture_address_mode;
+
+	sd.MaxAnisotropy = desc.max_anisotropy;
+
+	sd.MaxLOD = FLT_MAX;
+	sd.ComparisonFunc = D3D11_COMPARISON_NEVER;
+
+	auto hr = device->CreateSamplerState(&sd, &sampler_state);
 	assert(hr == S_OK);
 }
 
