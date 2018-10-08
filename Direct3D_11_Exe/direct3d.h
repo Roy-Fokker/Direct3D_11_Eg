@@ -5,6 +5,7 @@
 #include <dxgi1_2.h>
 #include <atlbase.h>
 #include <array>
+#include <vector>
 
 namespace direct3d_11_eg
 {
@@ -22,6 +23,10 @@ namespace direct3d_11_eg
 		using depth_stencil_state_t = CComPtr<ID3D11DepthStencilState>;
 		using rasterizer_state_t = CComPtr<ID3D11RasterizerState>;
 		using sampler_state_t = CComPtr<ID3D11SamplerState>;
+
+		using vertex_shader_t = CComPtr<ID3D11VertexShader>;
+		using pixel_shader_t = CComPtr<ID3D11PixelShader>;
+		using input_layout_t = CComPtr<ID3D11InputLayout>;
 	};
 
 	class direct3d
@@ -74,36 +79,56 @@ namespace direct3d_11_eg
 	class pipeline_state
 	{
 	public:
+		enum class blend_e
+		{
+			Opaque,
+			Alpha,
+			Additive,
+			NonPremultipled
+		};
+
+		enum class depth_stencil_e
+		{
+			None,
+			ReadWrite,
+			ReadOnly
+		};
+
+		enum class rasterizer_e
+		{
+			CullNone,
+			CullClockwise,
+			CullAntiClockwise,
+			Wireframe
+		};
+
+		enum class sampler_e
+		{
+			PointWrap,
+			PointClamp,
+			LinearWrap,
+			LinearClamp,
+			AnisotropicWrap,
+			AnisotropicClamp
+		};
+
+		enum class input_layout_e
+		{
+			position,
+			position_texcoord
+		};
+
 		struct description
 		{
-			struct blend_d
-			{
-				D3D11_BLEND src;
-				D3D11_BLEND src_alpha;
-				D3D11_BLEND dst;
-				D3D11_BLEND dst_alpha;
-				D3D11_BLEND_OP op;
-				D3D11_BLEND_OP op_alpha;
-			} blend{};
+			blend_e blend;
+			depth_stencil_e depth_stencil;
+			rasterizer_e rasterizer;
+			sampler_e sampler;
 
-			struct depth_stencil_d
-			{
-				bool depth_enable;
-				bool write_enable;
-			} depth_stencil{};
-
-			struct rasterizer_d
-			{
-				D3D11_CULL_MODE cull_mode;
-				D3D11_FILL_MODE fill_mode;
-			} rasterizer{};
-
-			struct sampler_d
-			{
-				D3D11_FILTER filter;
-				D3D11_TEXTURE_ADDRESS_MODE texture_address_mode;
-				uint32_t max_anisotropy;
-			} sampler{};
+			input_layout_e input_layout;
+			D3D11_PRIMITIVE_TOPOLOGY primitive_topology;
+			std::vector<byte> &vertex_shader_file;
+			std::vector<byte> &pixel_shader_file;
 		};
 
 	public:
@@ -114,15 +139,24 @@ namespace direct3d_11_eg
 		void activate(direct3d_types::context_t context);
 
 	private:
-		void make_blend_state(direct3d_types::device_t device, const description::blend_d &blend_desc);
-		void make_depth_stencil_state(direct3d_types::device_t device, const description::depth_stencil_d &depth_stencil_desc);
-		void make_rasterizer_state(direct3d_types::device_t device, const description::rasterizer_d &rasterizer_desc);
-		void make_sampler_state(direct3d_types::device_t device, const description::sampler_d &sample_desc);
+		void make_blend_state(direct3d_types::device_t device, blend_e blend);
+		void make_depth_stencil_state(direct3d_types::device_t device, depth_stencil_e depth_stencil);
+		void make_rasterizer_state(direct3d_types::device_t device, rasterizer_e rasterizer);
+		void make_sampler_state(direct3d_types::device_t device, sampler_e sampler);
+
+		void make_input_layout(direct3d_types::device_t device, input_layout_e input_layout, const std::vector<byte> &vso);
+		void make_vertex_shader(direct3d_types::device_t device, const std::vector<byte> &vso);
+		void make_pixel_shader(direct3d_types::device_t device, const std::vector<byte> &pso);
 
 	private:
 		direct3d_types::blend_state_t blend_state;
 		direct3d_types::depth_stencil_state_t depth_stencil_state;
 		direct3d_types::rasterizer_state_t rasterizer_state;
 		direct3d_types::sampler_state_t sampler_state;
+
+		direct3d_types::input_layout_t input_layout;
+		D3D11_PRIMITIVE_TOPOLOGY primitive_topology;
+		direct3d_types::vertex_shader_t vertex_shader;
+		direct3d_types::pixel_shader_t pixel_shader;
 	};
 };

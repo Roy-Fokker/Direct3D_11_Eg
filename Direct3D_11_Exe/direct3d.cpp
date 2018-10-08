@@ -21,6 +21,13 @@ namespace
 {
 	constexpr DXGI_FORMAT swap_chain_format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	constexpr uint16_t msaa_quality_level = 4U;
+	constexpr uint32_t max_anisotropy = 16U;
+
+	template<uint16_t SIZE>
+	using element_desc = std::array<D3D11_INPUT_ELEMENT_DESC, SIZE>;
+	constexpr D3D11_INPUT_ELEMENT_DESC position = { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 };
+	constexpr D3D11_INPUT_ELEMENT_DESC normal = { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 };
+	constexpr D3D11_INPUT_ELEMENT_DESC texcoord = { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 };
 
 	const std::array<uint16_t, 2> get_window_size(HWND window_handle)
 	{
@@ -106,6 +113,20 @@ namespace
 		}
 
 		return sd;
+	}
+
+	template<uint16_t SIZE>
+	input_layout_t get_input_layout(device_t device, const std::array<D3D11_INPUT_ELEMENT_DESC, SIZE> &elements, const std::vector<byte> &vso)
+	{
+		input_layout_t input_layout;
+		auto hr = device->CreateInputLayout(elements.data(),
+											static_cast<uint32_t>(elements.size()),
+											vso.data(),
+											static_cast<uint32_t>(vso.size()),
+											&input_layout);
+		assert(hr == S_OK);
+
+		return input_layout;
 	}
 }
 
@@ -290,6 +311,10 @@ pipeline_state::pipeline_state(device_t device, const description &state_descrip
 	make_depth_stencil_state(device, state_description.depth_stencil);
 	make_rasterizer_state(device, state_description.rasterizer);
 	make_sampler_state(device, state_description.sampler);
+
+	make_input_layout(device, state_description.input_layout, state_description.vertex_shader_file);
+	make_vertex_shader(device, state_description.vertex_shader_file);
+	make_pixel_shader(device, state_description.pixel_shader_file);
 }
 
 pipeline_state::~pipeline_state()
@@ -306,21 +331,51 @@ void pipeline_state::activate(context_t context)
 	context->PSSetSamplers(0,
 	                       1,
 	                       &sampler_state.p);
+
+
+	context->IASetPrimitiveTopology(primitive_topology);
+	context->IASetInputLayout(input_layout);
+
+	context->VSSetShader(vertex_shader, nullptr, 0);
+	context->PSSetShader(pixel_shader, nullptr, 0);
 }
 
-void pipeline_state::make_blend_state(device_t device, const description::blend_d &desc)
+void pipeline_state::make_blend_state(device_t device, blend_e blend)
 {
+	D3D11_BLEND src, dst;
+	D3D11_BLEND_OP op{ D3D11_BLEND_OP_ADD };
+
+	switch (blend)
+	{
+		case blend_e::Opaque:
+			src = D3D11_BLEND_ONE;
+			dst = D3D11_BLEND_ZERO;
+			break;
+		case blend_e::Alpha:
+			src = D3D11_BLEND_ONE;
+			dst = D3D11_BLEND_INV_SRC_ALPHA;
+			break;
+		case blend_e::Additive:
+			src = D3D11_BLEND_SRC_ALPHA;
+			dst = D3D11_BLEND_ONE;
+			break;
+		case blend_e::NonPremultipled:
+			src = D3D11_BLEND_SRC_ALPHA;
+			dst = D3D11_BLEND_INV_SRC_ALPHA;
+			break;
+	}
+
 	D3D11_BLEND_DESC bd{};
 
-	bd.RenderTarget[0].BlendEnable = ((desc.src != D3D11_BLEND_ONE) || (desc.dst != D3D11_BLEND_ONE));
+	bd.RenderTarget[0].BlendEnable = ((src != D3D11_BLEND_ONE) || (dst != D3D11_BLEND_ONE));
 
-	bd.RenderTarget[0].SrcBlend = desc.src;
-	bd.RenderTarget[0].BlendOp = desc.op;
-	bd.RenderTarget[0].DestBlend = desc.dst;
+	bd.RenderTarget[0].SrcBlend = src;
+	bd.RenderTarget[0].BlendOp = op;
+	bd.RenderTarget[0].DestBlend = dst;
 
-	bd.RenderTarget[0].SrcBlendAlpha = desc.src_alpha;
-	bd.RenderTarget[0].BlendOpAlpha = desc.op_alpha;
-	bd.RenderTarget[0].DestBlendAlpha = desc.dst_alpha;
+	bd.RenderTarget[0].SrcBlendAlpha = src;
+	bd.RenderTarget[0].BlendOpAlpha = op;
+	bd.RenderTarget[0].DestBlendAlpha = dst;
 
 	bd.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
 
@@ -328,12 +383,30 @@ void pipeline_state::make_blend_state(device_t device, const description::blend_
 	assert(hr == S_OK);
 }
 
-void pipeline_state::make_depth_stencil_state(device_t device, const description::depth_stencil_d &desc)
+void pipeline_state::make_depth_stencil_state(device_t device, depth_stencil_e depth_stencil)
 {
+	bool depth_enable, write_enable;
+
+	switch (depth_stencil)
+	{
+		case depth_stencil_e::None:
+			depth_enable = false;
+			write_enable = false;
+			break;
+		case depth_stencil_e::ReadWrite:
+			depth_enable = true;
+			write_enable = true;
+			break;
+		case depth_stencil_e::ReadOnly:
+			depth_enable = true;
+			write_enable = false;
+			break;
+	}
+
 	D3D11_DEPTH_STENCIL_DESC dsd{};
 
-	dsd.DepthEnable = desc.depth_enable;
-	dsd.DepthWriteMask = desc.write_enable ? D3D11_DEPTH_WRITE_MASK_ALL : D3D11_DEPTH_WRITE_MASK_ZERO;
+	dsd.DepthEnable = depth_enable;
+	dsd.DepthWriteMask = write_enable ? D3D11_DEPTH_WRITE_MASK_ALL : D3D11_DEPTH_WRITE_MASK_ZERO;
 	dsd.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
 
 	dsd.StencilEnable = false;
@@ -351,12 +424,35 @@ void pipeline_state::make_depth_stencil_state(device_t device, const description
 	assert(hr == S_OK);
 }
 
-void pipeline_state::make_rasterizer_state(device_t device, const description::rasterizer_d &desc)
+void pipeline_state::make_rasterizer_state(device_t device, rasterizer_e rasterizer)
 {
+	D3D11_CULL_MODE cull_mode;
+	D3D11_FILL_MODE fill_mode;
+
+	switch (rasterizer)
+	{
+		case rasterizer_e::CullNone:
+			cull_mode = D3D11_CULL_NONE;
+			fill_mode = D3D11_FILL_SOLID;
+			break;
+		case rasterizer_e::CullClockwise:
+			cull_mode = D3D11_CULL_FRONT;
+			fill_mode = D3D11_FILL_SOLID;
+			break;
+		case rasterizer_e::CullAntiClockwise:
+			cull_mode = D3D11_CULL_BACK;
+			fill_mode = D3D11_FILL_SOLID;
+			break;
+		case rasterizer_e::Wireframe:
+			cull_mode = D3D11_CULL_BACK;
+			fill_mode = D3D11_FILL_WIREFRAME;
+			break;
+	}
+
 	D3D11_RASTERIZER_DESC rd{};
 
-	rd.CullMode = desc.cull_mode;
-	rd.FillMode = desc.fill_mode;
+	rd.CullMode = cull_mode;
+	rd.FillMode = fill_mode;
 	rd.DepthClipEnable = true;
 	rd.MultisampleEnable = true;
 
@@ -365,22 +461,93 @@ void pipeline_state::make_rasterizer_state(device_t device, const description::r
 	assert(hr == S_OK);
 }
 
-void pipeline_state::make_sampler_state(device_t device, const description::sampler_d &desc)
+void pipeline_state::make_sampler_state(device_t device, sampler_e sampler)
 {
+	D3D11_FILTER filter;
+	D3D11_TEXTURE_ADDRESS_MODE texture_address_mode;
+
+	switch (sampler)
+	{
+		case sampler_e::PointWrap:
+			filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
+			texture_address_mode = D3D11_TEXTURE_ADDRESS_WRAP;
+			break;
+		case sampler_e::PointClamp:
+			filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
+			texture_address_mode = D3D11_TEXTURE_ADDRESS_CLAMP;
+			break;
+		case sampler_e::LinearWrap:
+			filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+			texture_address_mode = D3D11_TEXTURE_ADDRESS_WRAP;
+			break;
+		case sampler_e::LinearClamp:
+			filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+			texture_address_mode = D3D11_TEXTURE_ADDRESS_CLAMP;
+			break;
+		case sampler_e::AnisotropicWrap:
+			filter = D3D11_FILTER_ANISOTROPIC;
+			texture_address_mode = D3D11_TEXTURE_ADDRESS_WRAP;
+			break;
+		case sampler_e::AnisotropicClamp:
+			filter = D3D11_FILTER_ANISOTROPIC;
+			texture_address_mode = D3D11_TEXTURE_ADDRESS_CLAMP;
+			break;
+	}
+
 	D3D11_SAMPLER_DESC sd{ };
 
-	sd.Filter = desc.filter;
+	sd.Filter = filter;
 
-	sd.AddressU = desc.texture_address_mode;
-	sd.AddressV = desc.texture_address_mode;
-	sd.AddressW = desc.texture_address_mode;
+	sd.AddressU = texture_address_mode;
+	sd.AddressV = texture_address_mode;
+	sd.AddressW = texture_address_mode;
 
-	sd.MaxAnisotropy = desc.max_anisotropy;
+	sd.MaxAnisotropy = max_anisotropy;
 
 	sd.MaxLOD = FLT_MAX;
 	sd.ComparisonFunc = D3D11_COMPARISON_NEVER;
 
 	auto hr = device->CreateSamplerState(&sd, &sampler_state);
+	assert(hr == S_OK);
+}
+
+void pipeline_state::make_input_layout(device_t device, input_layout_e layout, const std::vector<byte> &vso)
+{
+	/* TODO:
+	I don't like how this works. 
+	Ideally, i want to return just the 'element_desc' from the 'switch'
+	and pass that to layout maker outside of 'switch'.
+	*/
+	switch (layout)
+	{
+		case input_layout_e::position:
+			input_layout = get_input_layout(device, 
+											element_desc<1>{ position }, 
+											vso);
+			break;
+		case input_layout_e::position_texcoord:
+			input_layout = get_input_layout(device, 
+											element_desc<2>{ position, texcoord }, 
+											vso);
+			break;
+	}
+}
+
+void pipeline_state::make_vertex_shader(device_t device, const std::vector<byte> &vso)
+{
+	auto hr = device->CreateVertexShader(vso.data(),
+										 vso.size(),
+										 NULL,
+										 &vertex_shader);
+	assert(hr == S_OK);
+}
+
+void pipeline_state::make_pixel_shader(device_t device, const std::vector<byte> &pso)
+{
+	auto hr = device->CreatePixelShader(pso.data(),
+										pso.size(),
+										NULL,
+										&pixel_shader);
 	assert(hr == S_OK);
 }
 

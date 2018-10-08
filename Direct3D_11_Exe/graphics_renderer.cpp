@@ -1,8 +1,33 @@
 #include "graphics_renderer.h"
 
 #include <array>
+#include <fstream>
+#include <vector>
+#include <cstdint>
 
 using namespace direct3d_11_eg;
+
+namespace
+{
+	// TODO: Move somewhere else later
+	using file_in_mem = std::vector<byte>;
+
+	file_in_mem read_binary_file(const std::wstring &fileName)
+	{
+		file_in_mem buffer;
+
+		std::ifstream inFile(fileName, std::ios::in | std::ios::binary);
+
+		if (!inFile.is_open())
+		{
+			throw std::runtime_error("Cannot open file");
+		}
+
+		buffer.assign((std::istreambuf_iterator<char>(inFile)), std::istreambuf_iterator<char>());
+
+		return buffer;
+	}
+}
 
 graphics_renderer::graphics_renderer(HWND hWnd)
 {
@@ -11,33 +36,19 @@ graphics_renderer::graphics_renderer(HWND hWnd)
 	draw_buffer = std::make_unique<render_target>(d3d->get_device(), d3d->get_swap_chain());
 	draw_buffer->activate(d3d->get_context());
 
+	auto vso = read_binary_file(L"position.vs.cso"),
+	     pso = read_binary_file(L"green.ps.cso");
 	draw_pipeline = std::make_unique<pipeline_state>(d3d->get_device(),
 	                                                 pipeline_state::description{
-	                                                 	// blend state
-	                                                 	{
-	                                                 		D3D11_BLEND_ONE,
-	                                                 		D3D11_BLEND_SRC_ALPHA,
-	                                                 		D3D11_BLEND_ONE,
-	                                                 		D3D11_BLEND_SRC_ALPHA,
-	                                                 		D3D11_BLEND_OP_ADD,
-	                                                 		D3D11_BLEND_OP_ADD
-	                                                 	},
-	                                                 	// depth stencil state
-	                                                 	{
-	                                                 		true,
-	                                                 		true
-	                                                 	},
-	                                                 	// rasterizer state
-	                                                 	{
-	                                                 		D3D11_CULL_BACK,
-	                                                 		D3D11_FILL_SOLID
-	                                                 	},
-	                                                 	// sampler state
-	                                                 	{
-	                                                 		D3D11_FILTER_MIN_MAG_MIP_POINT,
-	                                                 		D3D11_TEXTURE_ADDRESS_WRAP
-	                                                 	}
-	                                                 });
+	                                                     pipeline_state::blend_e::Opaque,
+	                                                     pipeline_state::depth_stencil_e::ReadWrite,
+	                                                     pipeline_state::rasterizer_e::CullAntiClockwise,
+	                                                     pipeline_state::sampler_e::PointWrap,
+	                                                     
+	                                                     pipeline_state::input_layout_e::position,
+	                                                     D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
+	                                                     vso,
+	                                                     pso});
 }
 
 graphics_renderer::~graphics_renderer()
