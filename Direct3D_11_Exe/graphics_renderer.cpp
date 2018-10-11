@@ -11,7 +11,7 @@ namespace
 {
 	// TODO: Move somewhere else later
 	using file_in_mem = std::vector<byte>;
-
+	// TODO: Move somewhere else later
 	file_in_mem read_binary_file(const std::wstring &fileName)
 	{
 		file_in_mem buffer;

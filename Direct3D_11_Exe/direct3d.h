@@ -127,8 +127,8 @@ namespace direct3d_11_eg
 
 			input_layout_e input_layout;
 			D3D11_PRIMITIVE_TOPOLOGY primitive_topology;
-			std::vector<byte> &vertex_shader_file;
-			std::vector<byte> &pixel_shader_file;
+			const std::vector<byte> &vertex_shader_file;
+			const std::vector<byte> &pixel_shader_file;
 		};
 
 	public:
