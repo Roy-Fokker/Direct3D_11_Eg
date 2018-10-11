@@ -23,8 +23,7 @@ namespace
 	constexpr uint16_t msaa_quality_level = 4U;
 	constexpr uint32_t max_anisotropy = 16U;
 
-	template<uint16_t SIZE>
-	using element_desc = std::array<D3D11_INPUT_ELEMENT_DESC, SIZE>;
+	using element_desc = std::vector<D3D11_INPUT_ELEMENT_DESC>;
 	constexpr D3D11_INPUT_ELEMENT_DESC position = { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 };
 	constexpr D3D11_INPUT_ELEMENT_DESC normal = { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 };
 	constexpr D3D11_INPUT_ELEMENT_DESC texcoord = { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 };
@@ -115,19 +114,6 @@ namespace
 		return sd;
 	}
 
-	template<uint16_t SIZE>
-	input_layout_t get_input_layout(device_t device, const std::array<D3D11_INPUT_ELEMENT_DESC, SIZE> &elements, const std::vector<byte> &vso)
-	{
-		input_layout_t input_layout;
-		auto hr = device->CreateInputLayout(elements.data(),
-											static_cast<uint32_t>(elements.size()),
-											vso.data(),
-											static_cast<uint32_t>(vso.size()),
-											&input_layout);
-		assert(hr == S_OK);
-
-		return input_layout;
-	}
 }
 
 #pragma region "Device, Context and Swap Chain"
@@ -513,24 +499,23 @@ void pipeline_state::make_sampler_state(device_t device, sampler_e sampler)
 
 void pipeline_state::make_input_layout(device_t device, input_layout_e layout, const std::vector<byte> &vso)
 {
-	/* TODO:
-	I don't like how this works. 
-	Ideally, i want to return just the 'element_desc' from the 'switch'
-	and pass that to layout maker outside of 'switch'.
-	*/
+	element_desc elements;
 	switch (layout)
 	{
 		case input_layout_e::position:
-			input_layout = get_input_layout(device, 
-											element_desc<1>{ position }, 
-											vso);
+			elements = { position };
 			break;
 		case input_layout_e::position_texcoord:
-			input_layout = get_input_layout(device, 
-											element_desc<2>{ position, texcoord }, 
-											vso);
+			elements = { position, texcoord };
 			break;
 	}
+
+	auto hr = device->CreateInputLayout(elements.data(),
+										static_cast<uint32_t>(elements.size()),
+										vso.data(),
+										static_cast<uint32_t>(vso.size()),
+										&input_layout);
+	assert(hr == S_OK);
 }
 
 void pipeline_state::make_vertex_shader(device_t device, const std::vector<byte> &vso)
