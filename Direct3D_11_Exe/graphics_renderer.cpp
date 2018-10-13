@@ -69,7 +69,7 @@ graphics_renderer::graphics_renderer(HWND hWnd)
 	                                                     pipeline_state::blend_e::Opaque,
 	                                                     pipeline_state::depth_stencil_e::ReadWrite,
 	                                                     pipeline_state::rasterizer_e::CullAntiClockwise,
-	                                                     pipeline_state::sampler_e::PointWrap,
+	                                                     pipeline_state::sampler_e::AnisotropicClamp,
 	                                                     
 	                                                     pipeline_state::input_layout_e::position,
 	                                                     D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
@@ -87,7 +87,7 @@ graphics_renderer::~graphics_renderer()
 
 void graphics_renderer::draw_frame()
 {
-	static std::array<float, 4> clear_color{ 0.25f, 0.50f, 0.25f, 1.0f };
+	static std::array<float, 4> clear_color{ 0.35f, 0.25f, 0.35f, 1.0f };
 	draw_buffer->clear_views(d3d->get_context(), clear_color);
 
 	draw_pipeline->activate(d3d->get_context());
