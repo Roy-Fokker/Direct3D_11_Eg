@@ -9,6 +9,8 @@
 
 namespace direct3d_11_eg
 {
+	struct vertex;
+
 	namespace direct3d_types
 	{
 		using device_t = CComPtr<ID3D11Device>;
@@ -27,6 +29,8 @@ namespace direct3d_11_eg
 		using vertex_shader_t = CComPtr<ID3D11VertexShader>;
 		using pixel_shader_t = CComPtr<ID3D11PixelShader>;
 		using input_layout_t = CComPtr<ID3D11InputLayout>;
+
+		using buffer_t = CComPtr<ID3D11Buffer>;
 	};
 
 	class direct3d
@@ -158,5 +162,29 @@ namespace direct3d_11_eg
 		D3D11_PRIMITIVE_TOPOLOGY primitive_topology;
 		direct3d_types::vertex_shader_t vertex_shader;
 		direct3d_types::pixel_shader_t pixel_shader;
+	};
+
+	class mesh_buffer
+	{
+	public:
+		mesh_buffer() = delete;
+		mesh_buffer(direct3d_types::device_t device, const std::vector<vertex> &vertex_array, const std::vector<uint32_t> &index_array);
+		~mesh_buffer();
+
+		void activate(direct3d_types::context_t context);
+		void draw(direct3d_types::context_t context);
+
+	private:
+		void make_vertex_buffer(direct3d_types::device_t device, const std::vector<vertex> &vertex_array);
+		void make_index_buffer(direct3d_types::device_t device, const std::vector<uint32_t> &index_array);
+
+	private:
+		direct3d_types::buffer_t vertex_buffer;
+		direct3d_types::buffer_t index_buffer;
+
+		uint32_t index_count = 0;
+		uint32_t index_offset = 0;
+		uint32_t vertex_size = 0;
+		uint32_t vertex_offset = 0;
 	};
 };

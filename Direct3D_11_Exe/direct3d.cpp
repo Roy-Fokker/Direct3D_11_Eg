@@ -7,6 +7,7 @@
 
 
 #include "direct3d.h"
+#include "vertex.h"
 
 #include <cassert>
 #include <cstdint>
@@ -167,15 +168,15 @@ void direct3d::make_device()
 	};
 
 	auto hr = D3D11CreateDevice(nullptr,
-								D3D_DRIVER_TYPE_HARDWARE,
-								nullptr,
-								flags,
-								feature_levels.data(),
-								static_cast<uint32_t>(feature_levels.size()),
-								D3D11_SDK_VERSION,
-								&device,
-								nullptr,
-								&context);
+	                            D3D_DRIVER_TYPE_HARDWARE,
+	                            nullptr,
+	                            flags,
+	                            feature_levels.data(),
+	                            static_cast<uint32_t>(feature_levels.size()),
+	                            D3D11_SDK_VERSION,
+	                            &device,
+	                            nullptr,
+	                            &context);
 	assert(hr == S_OK);
 }
 
@@ -252,8 +253,8 @@ void render_target::make_target_view(device_t device, swap_chain_t swap_chain)
 {
 	texture_2d_t buffer = nullptr;
 	auto hr = swap_chain->GetBuffer(0,
-	                                    __uuidof(ID3D11Texture2D),
-	                                    reinterpret_cast<void **>(&buffer.p));
+	                                __uuidof(ID3D11Texture2D),
+	                                reinterpret_cast<void **>(&buffer.p));
 	assert(hr == S_OK);
 
 	hr = device->CreateRenderTargetView(buffer,
@@ -277,13 +278,13 @@ void render_target::make_stencil_view(device_t device, const std::array<uint16_t
 	td.SampleDesc = get_msaa_level(device);
 
 	auto hr = device->CreateTexture2D(&td,
-	                                      0,
-	                                      &depth_buffer);
+	                                  0,
+	                                  &depth_buffer);
 	assert(hr == S_OK);
 
 	hr = device->CreateDepthStencilView(depth_buffer,
-	                                        0,
-	                                        &depth_view);
+	                                    0,
+	                                    &depth_view);
 	assert(hr == S_OK);
 }
 
@@ -301,6 +302,8 @@ pipeline_state::pipeline_state(device_t device, const description &state_descrip
 	make_input_layout(device, state_description.input_layout, state_description.vertex_shader_file);
 	make_vertex_shader(device, state_description.vertex_shader_file);
 	make_pixel_shader(device, state_description.pixel_shader_file);
+
+	primitive_topology = state_description.primitive_topology;
 }
 
 pipeline_state::~pipeline_state()
@@ -511,28 +514,99 @@ void pipeline_state::make_input_layout(device_t device, input_layout_e layout, c
 	}
 
 	auto hr = device->CreateInputLayout(elements.data(),
-										static_cast<uint32_t>(elements.size()),
-										vso.data(),
-										static_cast<uint32_t>(vso.size()),
-										&input_layout);
+	                                    static_cast<uint32_t>(elements.size()),
+	                                    vso.data(),
+	                                    static_cast<uint32_t>(vso.size()),
+	                                    &input_layout);
 	assert(hr == S_OK);
 }
 
 void pipeline_state::make_vertex_shader(device_t device, const std::vector<byte> &vso)
 {
 	auto hr = device->CreateVertexShader(vso.data(),
-										 vso.size(),
-										 NULL,
-										 &vertex_shader);
+	                                     vso.size(),
+	                                     NULL,
+	                                     &vertex_shader);
 	assert(hr == S_OK);
 }
 
 void pipeline_state::make_pixel_shader(device_t device, const std::vector<byte> &pso)
 {
 	auto hr = device->CreatePixelShader(pso.data(),
-										pso.size(),
-										NULL,
-										&pixel_shader);
+	                                    pso.size(),
+	                                    NULL,
+	                                    &pixel_shader);
+	assert(hr == S_OK);
+}
+
+#pragma endregion
+
+#pragma region "Mesh Buffer"
+
+mesh_buffer::mesh_buffer(device_t device, const std::vector<vertex> &vertex_array, const std::vector<uint32_t> &index_array)
+{
+	make_vertex_buffer(device, vertex_array);
+	make_index_buffer(device, index_array);
+}
+
+mesh_buffer::~mesh_buffer()
+{}
+
+void mesh_buffer::activate(context_t context)
+{
+	context->IASetVertexBuffers(0,
+	                            1,
+	                            &(vertex_buffer.p),
+	                            &vertex_size,
+	                            &vertex_offset);
+
+	context->IASetIndexBuffer(index_buffer,
+	                          DXGI_FORMAT_R32_UINT,
+	                          index_offset);
+}
+
+void mesh_buffer::draw(context_t context)
+{
+	context->DrawIndexed(index_count,
+	                     0,
+	                     0);
+}
+
+void mesh_buffer::make_vertex_buffer(device_t device, const std::vector<vertex> &vertex_array)
+{
+	vertex_size = sizeof(vertex_array.back());
+
+	D3D11_BUFFER_DESC bd{};
+	bd.Usage = D3D11_USAGE_DEFAULT;
+	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	bd.CPUAccessFlags = NULL;
+	bd.ByteWidth = vertex_size * static_cast<uint32_t>(vertex_array.size());
+
+	D3D11_SUBRESOURCE_DATA vertex_data{};
+	vertex_data.pSysMem = reinterpret_cast<const void *>(vertex_array.data());
+
+	auto hr = device->CreateBuffer(&bd,
+	                               &vertex_data,
+	                               &vertex_buffer);
+	assert(hr == S_OK);
+}
+
+void mesh_buffer::make_index_buffer(device_t device, const std::vector<uint32_t>& index_array)
+{
+	index_count = static_cast<uint32_t>(index_array.size());
+
+	D3D11_BUFFER_DESC bd{};
+	bd.Usage = D3D11_USAGE_DEFAULT;
+	bd.BindFlags = D3D11_BIND_INDEX_BUFFER;
+	bd.CPUAccessFlags = NULL;
+	bd.ByteWidth = sizeof(uint32_t) * index_count;
+
+	D3D11_SUBRESOURCE_DATA index_data{};
+	index_data.pSysMem = reinterpret_cast<const void *>(index_array.data());
+
+	auto hr = device->CreateBuffer(&bd,
+								   &index_data,
+								   &index_buffer);
 	assert(hr == S_OK);
 }
 

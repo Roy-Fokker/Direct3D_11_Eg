@@ -4,9 +4,12 @@
 
 #include <Windows.h>
 #include <memory>
+#include <vector>
 
 namespace direct3d_11_eg
 {
+	struct vertex;
+
 	class graphics_renderer
 	{
 	public:
@@ -21,5 +24,6 @@ namespace direct3d_11_eg
 		std::unique_ptr<direct3d> d3d = nullptr;
 		std::unique_ptr<render_target> draw_buffer = nullptr;
 		std::unique_ptr<pipeline_state> draw_pipeline = nullptr;
+		std::unique_ptr<mesh_buffer> mesh = nullptr;
 	};
 };

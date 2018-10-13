@@ -94,6 +94,7 @@
     <ClInclude Include="application.h" />
     <ClInclude Include="direct3d.h" />
     <ClInclude Include="graphics_renderer.h" />
+    <ClInclude Include="vertex.h" />
     <ClInclude Include="window.h" />
   </ItemGroup>
   <ItemGroup>

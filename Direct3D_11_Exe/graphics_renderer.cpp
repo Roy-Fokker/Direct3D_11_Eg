@@ -1,9 +1,11 @@
 #include "graphics_renderer.h"
+#include "vertex.h"
 
 #include <array>
 #include <fstream>
 #include <vector>
 #include <cstdint>
+#include <tuple>
 
 using namespace direct3d_11_eg;
 
@@ -27,6 +29,30 @@ namespace
 
 		return buffer;
 	}
+
+	using vertex_array_t = std::vector<vertex>;
+	using index_array_t = std::vector<uint32_t>;
+	std::tuple<vertex_array_t, index_array_t> get_triangle_mesh(float base, float height, float delta)
+	{
+		float halfHeight = height / 2.0f;
+		float halfBase = base / 2.0f;
+
+		float x1 = -halfBase, y1 = -halfHeight,
+			x3 = base * delta, y3 = halfHeight,
+			x2 = halfBase, y2 = y1;
+
+		return {
+			// Vertex List
+			{
+				{ { x1, y1, +0.5f } },
+				{ { x3, y3, +0.5f } },
+				{ { x2, y2, +0.5f } },
+			},
+
+			// Index List
+			{ 0, 1, 2 }
+		};
+	}
 }
 
 graphics_renderer::graphics_renderer(HWND hWnd)
@@ -49,6 +75,11 @@ graphics_renderer::graphics_renderer(HWND hWnd)
 	                                                     D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
 	                                                     vso,
 	                                                     pso});
+
+	auto[vertex_array, index_array] = get_triangle_mesh(1.0f, 1.0f, 0.0f);
+	mesh = std::make_unique<mesh_buffer>(d3d->get_device(),
+	                                     vertex_array,
+	                                     index_array);
 }
 
 graphics_renderer::~graphics_renderer()
@@ -61,11 +92,10 @@ void graphics_renderer::draw_frame()
 
 	draw_pipeline->activate(d3d->get_context());
 
-	// set shaders and input layout and input topology
-
 	// set per frame shader constants 
 
-	// vertex data and draw
+	mesh->activate(d3d->get_context());
+	mesh->draw(d3d->get_context());
 	
 	d3d->present();
 }
