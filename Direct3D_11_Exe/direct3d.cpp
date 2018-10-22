@@ -331,7 +331,7 @@ void pipeline_state::activate(context_t context)
 
 void pipeline_state::make_blend_state(device_t device, blend_e blend)
 {
-	D3D11_BLEND src, dst;
+	D3D11_BLEND src{}, dst{};
 	D3D11_BLEND_OP op{ D3D11_BLEND_OP_ADD };
 
 	switch (blend)
@@ -374,7 +374,7 @@ void pipeline_state::make_blend_state(device_t device, blend_e blend)
 
 void pipeline_state::make_depth_stencil_state(device_t device, depth_stencil_e depth_stencil)
 {
-	bool depth_enable, write_enable;
+	bool depth_enable{ false }, write_enable{ false };
 
 	switch (depth_stencil)
 	{
@@ -415,8 +415,8 @@ void pipeline_state::make_depth_stencil_state(device_t device, depth_stencil_e d
 
 void pipeline_state::make_rasterizer_state(device_t device, rasterizer_e rasterizer)
 {
-	D3D11_CULL_MODE cull_mode;
-	D3D11_FILL_MODE fill_mode;
+	D3D11_CULL_MODE cull_mode{};
+	D3D11_FILL_MODE fill_mode{};
 
 	switch (rasterizer)
 	{
@@ -452,8 +452,8 @@ void pipeline_state::make_rasterizer_state(device_t device, rasterizer_e rasteri
 
 void pipeline_state::make_sampler_state(device_t device, sampler_e sampler)
 {
-	D3D11_FILTER filter;
-	D3D11_TEXTURE_ADDRESS_MODE texture_address_mode;
+	D3D11_FILTER filter{};
+	D3D11_TEXTURE_ADDRESS_MODE texture_address_mode{};
 
 	switch (sampler)
 	{
